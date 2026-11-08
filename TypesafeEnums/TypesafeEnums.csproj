@@ -4,5 +4,22 @@
 		<TargetFramework>net8.0</TargetFramework>
 		<ImplicitUsings>enable</ImplicitUsings>
 		<Nullable>enable</Nullable>
+		<GeneratePackageOnBuild>True</GeneratePackageOnBuild>
+		<Title>TypesafeEnums im Java-Stil</Title>
+		<PackageLicenseFile>LICENSE.txt</PackageLicenseFile>
+		<PackageRequireLicenseAcceptance>False</PackageRequireLicenseAcceptance>
+		<AnalysisLevel>none</AnalysisLevel>
+		<PackageId>$(AssemblyName).NET</PackageId>
 	</PropertyGroup>
+	<ItemGroup>
+		<ProjectReference Include="..\TypesafeEnums.Analyzers\TypesafeEnums.Analyzers.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
+
+		<None Include="..\TypesafeEnums.Analyzers\bin\$(Configuration)\netstandard2.0\TypesafeEnums.Analyzers.dll" Pack="true" PackagePath="analyzers/dotnet/cs/" Visible="false" />
+	</ItemGroup>
+	<ItemGroup>
+	  <None Include="..\LICENSE.txt">
+	    <Pack>True</Pack>
+	    <PackagePath>\</PackagePath>
+	  </None>
+	</ItemGroup>
 </Project>
