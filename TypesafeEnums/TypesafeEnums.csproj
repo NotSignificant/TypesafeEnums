@@ -7,7 +7,15 @@
 		<Nullable>enable</Nullable>
 		<GeneratePackageOnBuild>True</GeneratePackageOnBuild>
 		<Title>TypesafeEnums im Java-Stil</Title>
+		<Authors>Hartmut Pohl (NotSignificant)</Authors>
 		<PackageLicenseFile>LICENSE.txt</PackageLicenseFile>
+		<Copyright>Copyright © 2026 H. Pohl</Copyright>
+		<PackageProjectUrl>https://github.com/NotSignificant/TypesafeEnums</PackageProjectUrl>
+		<RepositoryUrl>https://github.com/NotSignificant/TypesafeEnums.git</RepositoryUrl>
+		<RepositoryType>git</RepositoryType>
+		<PackageReleaseNotes>Projektdaten hinzugefügt</PackageReleaseNotes>
+		<PackageTags>TypesafeEnums Enum Java CSharp CSharp-Enums</PackageTags>
+		<PackageReadmeFile>README.md</PackageReadmeFile>
 		<Description>Java-Like TypesafeEnums für .NET mit Switch auf Typ statt auf string oder int</Description>
 		<PackageRequireLicenseAcceptance>False</PackageRequireLicenseAcceptance>
 		<AnalysisLevel>none</AnalysisLevel>
@@ -19,9 +27,13 @@
 		<None Include="..\TypesafeEnums.Analyzers\bin\$(Configuration)\netstandard2.0\TypesafeEnums.Analyzers.dll" Pack="true" PackagePath="analyzers/dotnet/cs/" Visible="false" />
 	</ItemGroup>
 	<ItemGroup>
-	  <None Include="..\LICENSE.txt">
-	    <Pack>True</Pack>
-	    <PackagePath>\</PackagePath>
-	  </None>
+		<None Include="..\LICENSE.txt">
+			<Pack>True</Pack>
+			<PackagePath>\</PackagePath>
+		</None>
+		<None Include="..\README.md">
+			<Pack>True</Pack>
+			<PackagePath>\</PackagePath>
+		</None>
 	</ItemGroup>
 </Project>
