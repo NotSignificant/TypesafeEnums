@@ -2,11 +2,13 @@
 
 	<PropertyGroup>
 		<TargetFramework>net8.0</TargetFramework>
+		<Version>1.0.1</Version>
 		<ImplicitUsings>enable</ImplicitUsings>
 		<Nullable>enable</Nullable>
 		<GeneratePackageOnBuild>True</GeneratePackageOnBuild>
 		<Title>TypesafeEnums im Java-Stil</Title>
 		<PackageLicenseFile>LICENSE.txt</PackageLicenseFile>
+		<Description>Java-Like TypesafeEnums für .NET mit Switch auf Typ statt auf string oder int</Description>
 		<PackageRequireLicenseAcceptance>False</PackageRequireLicenseAcceptance>
 		<AnalysisLevel>none</AnalysisLevel>
 		<PackageId>$(AssemblyName).NET</PackageId>
