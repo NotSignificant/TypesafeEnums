@@ -23,8 +23,9 @@ TypesafeEnums ist eine Bibliothek, die Enums im Java-Stil ermöglicht.
 Installation über NuGet.
 
 ## Usage
-Codebeispiel:
+***Codebeispiel:***
 
+``` csharp
 using static TypesafeEnums.TSEnum;
 
 namespace TypesafeEnums.Test
@@ -75,7 +76,7 @@ namespace TypesafeEnums.Test
         }
     }
 }
-
+```
 ## Analyzer
 
 Das Paket enthält einen Codeanalyzer, der die Korrektheit der emulierten Switch-Statemens
