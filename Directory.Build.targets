@@ -1,5 +1,5 @@
 <Project>
-  <ItemGroup Condition="'$(MSBuildProjectName)' != 'TypesafeEnums.Analyzers'">
+  <ItemGroup Condition="'$(MSBuildProjectName)' != 'TypesafeEnums.Analyzers' and '$(MSBuildProjectName)' != 'TypesafeEnums'">
     <ProjectReference Include="$(MSBuildThisFileDirectory)TypesafeEnums.Analyzers\TypesafeEnums.Analyzers.csproj"
                       OutputItemType="Analyzer"
                       ReferenceOutputAssembly="false"

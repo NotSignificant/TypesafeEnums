@@ -1,5 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
 using Microsoft.CodeAnalysis;
@@ -15,7 +14,7 @@ namespace TypesafeEnums.Analyzers
         private static readonly DiagnosticDescriptor RuleDuplicateDefault = new DiagnosticDescriptor(
             id: "TS0001",
             title: "Doppelter Default-Fall im Switch",
-            messageFormat: "Ein Switch-Block darf nur maximal einen 'Default'-Fall enthalten",
+            messageFormat: "Ein Switch-Block darf nur maximal einen 'Default' enthalten",
             category: "Logic",
             defaultSeverity: DiagnosticSeverity.Error,
             isEnabledByDefault: true);
@@ -33,8 +32,23 @@ namespace TypesafeEnums.Analyzers
             category: "Logic",
             defaultSeverity: DiagnosticSeverity.Error,
             isEnabledByDefault: true);
+        private static readonly DiagnosticDescriptor RuleMissingCases = new DiagnosticDescriptor(
+            id: "TS0004",
+            title: "Fehlende Zustände bei Switch-Block",
+            messageFormat: "Es wurden nicht alle Zustände abgedeckt",
+            category: "Logic",
+            defaultSeverity: DiagnosticSeverity.Warning,
+            isEnabledByDefault: true);
+        private static readonly DiagnosticDescriptor RuleEmptySwitch = new DiagnosticDescriptor(
+            id: "TS0005",
+            title: "Leerer Switch-Block",
+            messageFormat: "Der Switch-Block ist leer",
+            category: "Logic",
+            defaultSeverity: DiagnosticSeverity.Warning,
+            isEnabledByDefault: true);
+        // For dwbug purposes only
         private static readonly DiagnosticDescriptor RuleElementInfo = new DiagnosticDescriptor(
-            id: "LI0003",
+            id: "TS0099",
             title: "Info",
             messageFormat: "{0}",
             category: "Logic",
@@ -42,7 +56,7 @@ namespace TypesafeEnums.Analyzers
             isEnabledByDefault: true);
 
         public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics =>
-            ImmutableArray.Create(RuleDuplicateDefault, RuleDuplicateCase, RuleInvalidCaseExpression, RuleElementInfo);
+            ImmutableArray.Create(RuleDuplicateDefault, RuleDuplicateCase, RuleInvalidCaseExpression, RuleMissingCases, RuleEmptySwitch, RuleElementInfo);
 
         public override void Initialize(AnalysisContext context)
         {
@@ -55,83 +69,103 @@ namespace TypesafeEnums.Analyzers
         {
             InvocationExpressionSyntax invocation = (InvocationExpressionSyntax)context.Node;
             string calledMethodName = GetMethodNameText(invocation.Expression);
-
-            if (calledMethodName == "Switch")
+            if (!(context.SemanticModel.GetSymbolInfo(invocation).Symbol is IMethodSymbol methodSymbol))
             {
-                CollectionExpressionSyntax collectionExpression = invocation.ArgumentList.Arguments
-                    .Select(a => a.Expression)
-                    .OfType<CollectionExpressionSyntax>()
-                    .FirstOrDefault();
+                return;
+            }
 
-                if (collectionExpression != null)
+            if (methodSymbol.Name != "Switch" ||
+                methodSymbol.TypeArguments.Length == 0 ||
+                !(methodSymbol.TypeArguments[0] is INamedTypeSymbol enumType))
+            {
+                return;
+            }
+            //            context.ReportDiagnostic(Diagnostic.Create(RuleElementInfo, invocation.GetLocation(), enumType.ToString()));
+            HashSet<ISymbol> possibleCases = GetPossibleCases(enumType);
+
+            CollectionExpressionSyntax collectionExpression = invocation.ArgumentList.Arguments
+                .Select(a => a.Expression)
+                .OfType<CollectionExpressionSyntax>()
+                .FirstOrDefault();
+
+            if (collectionExpression == null)
+                return;
+
+            bool defaultCase = false;
+            HashSet<ISymbol> seenCaseSymbols = new HashSet<ISymbol>(SymbolEqualityComparer.Default);
+
+            foreach (CollectionElementSyntax element in collectionExpression.Elements)
+            {
+                if (!(element is ExpressionElementSyntax exprElement) ||
+                    !(exprElement.Expression is InvocationExpressionSyntax subInvocation))
                 {
-                    int defaultCount = 0;
-                    HashSet<ISymbol> seenCaseSymbols = new HashSet<ISymbol>(SymbolEqualityComparer.Default);
+                    continue;
+                }
 
-                    foreach (CollectionElementSyntax element in collectionExpression.Elements)
+                string subMethodName = GetMethodNameText(subInvocation.Expression);
+
+                // Doppelter Default
+                if (subMethodName == "Default")
+                {
+                    if (defaultCase)
+                        context.ReportDiagnostic(Diagnostic.Create(RuleDuplicateDefault, subInvocation.GetLocation()));
+
+                    defaultCase = true;
+                }
+
+                // Case-Zustände
+                if (subMethodName == "Case" && subInvocation.ArgumentList.Arguments.Count > 0)
+                {
+                    ExpressionSyntax firstArgExpression = subInvocation.ArgumentList.Arguments[0].Expression;
+
+                    if (!(firstArgExpression is CollectionExpressionSyntax multiCaseCollection))
                     {
-                        if (element is ExpressionElementSyntax exprElement &&
-                            exprElement.Expression is InvocationExpressionSyntax subInvocation)
+                        context.ReportDiagnostic(
+                            Diagnostic.Create(RuleInvalidCaseExpression,
+                                firstArgExpression.GetLocation(), firstArgExpression.ToString().Trim()));
+                        continue;
+                    }
+
+                    foreach (CollectionElementSyntax collectionElement in multiCaseCollection.Elements)
+                    {
+                        if (!(collectionElement is ExpressionElementSyntax e))
                         {
-                            string subMethodName = GetMethodNameText(subInvocation.Expression);
+                            context.ReportDiagnostic(
+                                Diagnostic.Create(RuleInvalidCaseExpression,
+                                    collectionElement.GetLocation(), collectionElement.ToString().Trim()));
+                            continue;
+                        }
 
-                            // --- CHECK 1: DOPPELTER DEFAULT-FALL ---
-                            if (subMethodName == "Default")
+                        SymbolInfo memberSymbolInfo = context.SemanticModel.GetSymbolInfo(e.Expression);
+
+                        if (memberSymbolInfo.Symbol is IFieldSymbol fieldSymbol &&
+                            possibleCases.Contains(fieldSymbol))
+                        {
+                            if (!seenCaseSymbols.Add(fieldSymbol))
                             {
-                                defaultCount++;
-                                if (defaultCount > 1)
-                                {
-                                    context.ReportDiagnostic(Diagnostic.Create(RuleDuplicateDefault, subInvocation.GetLocation()));
-                                }
+                                context.ReportDiagnostic(
+                                    Diagnostic.Create(RuleDuplicateCase, e.GetLocation(), fieldSymbol.Name));
                             }
-
-                            // --- CHECK 2: DOPPELTER CASE-ZUSTAND ---
-                            if (subMethodName == "Case" && subInvocation.ArgumentList.Arguments.Count > 0)
-                            {
-                                // Korrekter Index-Zugriff auf das erste Argument des Case-Aufrufs
-                                ExpressionSyntax firstArgExpression = subInvocation.ArgumentList.Arguments[0].Expression;
-
-                                if (firstArgExpression is CollectionExpressionSyntax multiCaseCollection)
-                                {
-                                    foreach (CollectionElementSyntax collectionElement in multiCaseCollection.Elements)
-                                    {
-                                        if (collectionElement is ExpressionElementSyntax e)
-                                        {
-                                            SymbolInfo memberSymbolInfo = context.SemanticModel.GetSymbolInfo(e.Expression);
-//                                            context.ReportDiagnostic(Diagnostic.Create(RuleElementInfo, e.GetLocation(), memberSymbolInfo.Symbol?.ToDisplayString()));
-
-                                            // DIE ULTIMATIVE WHITELIST: Es MUSS ein Feld sein, das public, static und readonly ist!
-                                            if (memberSymbolInfo.Symbol is IFieldSymbol fieldSymbol &&
-                                                fieldSymbol.DeclaredAccessibility == Accessibility.Public &&
-                                                fieldSymbol.IsStatic &&
-                                                fieldSymbol.IsReadOnly)
-                                            {
-                                                if (!seenCaseSymbols.Add(fieldSymbol))
-                                                {
-                                                    context.ReportDiagnostic(Diagnostic.Create(RuleDuplicateCase, e.GetLocation(), fieldSymbol.Name));
-                                                }
-                                            }
-                                            else
-                                            {
-                                                // Alles, was kein public static readonly Feld ist (z.B. Methoden wie .Values()), erzeugt TS0003
-                                                context.ReportDiagnostic(Diagnostic.Create(RuleInvalidCaseExpression, collectionElement.GetLocation(), e.Expression.ToString()));
-                                            }
-                                        }
-                                        else
-                                        {
-                                            context.ReportDiagnostic(Diagnostic.Create(RuleInvalidCaseExpression, collectionElement.GetLocation(), collectionElement.ToString().Trim()));
-                                        }
-                                    }
-                                }
-                                else
-                                {
-                                    // Falls im Case überhaupt kein [...] Array steht, sondern direkt Enum2.Values() aufgerufen wird
-                                    context.ReportDiagnostic(Diagnostic.Create(RuleInvalidCaseExpression, firstArgExpression.GetLocation(), firstArgExpression.ToString().Trim()));
-                                }
-                            }
+                        }
+                        else
+                        {
+                            context.ReportDiagnostic(
+                                Diagnostic.Create(RuleInvalidCaseExpression,
+                                    e.GetLocation(), e.Expression.ToString()));
                         }
                     }
                 }
+            }
+
+            // Erst NACH der vollständigen Auswertung aller Elemente prüfen:
+
+            if (seenCaseSymbols.Count == 0)
+            {
+                context.ReportDiagnostic(Diagnostic.Create(RuleEmptySwitch, invocation.GetLocation()));
+            }
+            else if (!defaultCase && seenCaseSymbols.Count < possibleCases.Count)
+            {
+                context.ReportDiagnostic(Diagnostic.Create(RuleMissingCases, invocation.GetLocation()));
             }
         }
 
@@ -150,6 +184,24 @@ namespace TypesafeEnums.Analyzers
                 return GetMethodNameText(memberAccess.Name);
             }
             return null;
+        }
+
+        private static HashSet<ISymbol> GetPossibleCases(INamedTypeSymbol enumType)
+        {
+            HashSet<ISymbol> result = new HashSet<ISymbol>(SymbolEqualityComparer.Default);
+
+            foreach (ISymbol member in enumType.GetMembers())
+            {
+                if (member is IFieldSymbol field &&
+                    field.DeclaredAccessibility == Accessibility.Public &&
+                    field.IsStatic &&
+                    field.IsReadOnly)
+                {
+                    result.Add(field);
+                }
+            }
+
+            return result;
         }
     }
 }
